@@ -1,0 +1,332 @@
+package wine;
+
+import java.sql.DriverManager;
+
+
+import java.sql.Statement;
+import java.util.Scanner;
+import Jama.Matrix;
+import Jama.QRDecomposition;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+
+public class statistical {
+    	private int N;        
+	    private int p;       
+	    private Matrix beta; 
+	    private double SSE;         
+	    private double SST;         
+	    public  static double predict[][] = new double[2][5];   
+	    public  static int plus=0;
+	    public statistical(double[][] x, double[] y) {
+	        if (x.length != y.length) throw new RuntimeException("dimensions don't agree");
+	        N = y.length;
+	        p = x[0].length;
+
+	        Matrix X = new Matrix(x);
+
+	     
+	        Matrix Y = new Matrix(y, N);
+
+	        QRDecomposition qr = new QRDecomposition(X);
+	        beta = qr.solve(Y);
+
+
+	       
+	        double sum = 0.0;
+	        for (int i = 0; i < N; i++)
+	            sum += y[i];
+	        double mean = sum / N;
+
+	       
+	        for (int i = 0; i < N; i++) {
+	            double dev = y[i] - mean;
+	            SST += dev*dev;
+	        }
+
+	       
+	        Matrix residuals = X.times(beta).minus(Y);
+	        SSE = residuals.norm2() * residuals.norm2();
+
+	    }
+
+	    public double beta(int j) {
+	        return beta.get(j, 0);
+	    }
+
+	    public double R2() {
+	        return 1.0 - SSE/SST;
+	    }
+    
+	
+	static float correlationCoefficient(double X[],double Y[], int n)
+{
+
+double sum_X = 0, sum_Y = 0, sum_XY = 0;
+double squareSum_X = 0, squareSum_Y = 0;
+
+for (int i = 0; i < n; i++)
+{
+
+sum_X = sum_X + X[i];
+
+
+sum_Y = sum_Y + Y[i];
+
+
+sum_XY = sum_XY + X[i] * Y[i];
+
+
+squareSum_X = squareSum_X + X[i] * X[i];
+squareSum_Y = squareSum_Y + Y[i] * Y[i];
+}
+
+float corr = (float)(n * sum_XY - sum_X * sum_Y)/(float)(Math.sqrt((n * squareSum_X -sum_X * sum_X) * (n * squareSum_Y - sum_Y * sum_Y)));
+
+return corr;
+}
+	
+	public static Boolean validate(String id,String pswd,ResultSet rs1) {
+	Boolean check=false;
+
+	try {
+		while(rs1.next()) {
+		String idcheck,pswdcheck;	
+		idcheck=rs1.getString("id");
+		pswdcheck=rs1.getString("pswd");
+		if(id.equals(idcheck)) {
+			if(pswd.equals(pswdcheck)) {
+				check=true;
+				System.out.println("Loading...");
+				}
+			else{
+				System.out.println("enter correct Credentials");
+			}
+		}
+		}
+	} catch (SQLException e) {
+
+		e.printStackTrace();
+	}
+	
+	return check;	
+	}
+	
+    public static void calculate(ResultSet rs,String independent) {
+        int maxn=1000;
+        int n=0;
+        double[] x = new double[maxn];
+        double[] y = new double[maxn];
+        double sumx = 0.0, sumy = 0.0, sumx2 = 0.0;
+	    
+        try {
+			while(rs.next())
+			 {
+
+			    if((independent == "winter_rain")||(independent == "winter_rain")||(independent == "harvest_rain")||(independent == "age")) {
+			    	x[n] =(double) rs.getInt(independent);	
+			    }
+				x[n] = rs.getDouble(independent);
+			   y[n] = rs.getDouble("price");
+			   sumx  += x[n];
+			   sumx2 += x[n] * x[n];
+			   sumy  += y[n];
+			   n++;
+			    	
+			 }
+		} catch (SQLException e) {
+
+			e.printStackTrace();
+		}
+		 double xbar = sumx / n;
+	     double ybar = sumy / n;
+	     
+	     double xxbar = 0.0, yybar = 0.0, xybar = 0.0;
+	        for (int i = 0; i < n; i++) {
+	            xxbar += (x[i] - xbar) * (x[i] - xbar);
+	            yybar += (y[i] - ybar) * (y[i] - ybar);
+	            xybar += (x[i] - xbar) * (y[i] - ybar);
+	        }
+	        double beta1 = xybar / xxbar;
+	        double beta0 = ybar - beta1 * xbar;
+	        System.out.println();
+	        System.out.println("Data price vs "+ independent);
+		    System.out.println();
+	        System.out.println("y   = " + beta1 + " * x + " + beta0); 
+	        System.out.println();
+
+	        int df = n - 2;
+	        double rss = 0.0;      // residual sum of squares
+	        double ssr = 0.0;      // regression sum of squares
+	        for (int i = 0; i < n; i++) {
+	            double fit = beta1*x[i] + beta0;
+	            rss += (fit - y[i]) * (fit - y[i]);
+	            ssr += (fit - ybar) * (fit - ybar);
+	        }
+	        double R2    = ssr / yybar;
+	        double svar  = rss / df;
+	        double svar1 = svar / xxbar;
+	        double svar0 = svar/n + xbar*xbar*svar1;
+	        System.out.println("R^2                 = " + R2);
+	        System.out.println("std error of beta_1 = " + Math.sqrt(svar1));
+	        System.out.println("std error of beta_0 = " + Math.sqrt(svar0));
+	        
+           System.out.println("SST = " + yybar);
+           System.out.println("SSE  = " + rss);
+      //     System.out.println("SSR  = " + ssr);
+ 
+    	
+    }
+	public static void main(String[] args) {
+        try {
+        
+        	
+       //double[][] x = { {17.1167 ,160 ,600  },{ 16.7333,80,690},{17.15,130,502},{16.1333,110,420},{16.4167,187,582},{17.4833,187,485},{16.4167,290,763},{17.333,38,830},{16.3,52,697},{15.7167,155,608},{17.2667,96,96},{15.3667,267,602},{16.5333,86,819},{16.2333,118,714},{16.2,292,610},{16.55,244,575},{16.6667,89,622},{16.7667,112,551},{14.9833,158,536},{17.0667,123,376},{16.3,184,574},{16.95,171,572},{17.65,247,418},{15.5833,87,821},{15.8167,51,763}};
+        double[][] x=new double[25][4];
+      //double[] y = {7.495,8.0393,7.6858,6.9845,6.7772,8.0757,6.5188,8.4937,7.388,6.7127,7.3094,6.2518,7.7443,6.8398,6.2435,6.3495,7.5883,7.1934,6.2049,6.6367,6.2941,7.292,7.1211,6.2587,7.186};
+        double[]y = new double[25];
+        double price[] = new double[25];
+	    double winterrain[] = new double[25];
+	    double agst[] = new double[25];
+	    double harvest_rain[] = new double[25];
+	    double age[] = new double[25];
+	    double francepop[] = new double[25];
+	    double beta[]=new double[6];
+	    
+	    int point=0;	
+        Scanner scanner = new Scanner( System.in );
+		 Connection conn= DriverManager.getConnection("jdbc:mysql://localhost/mydb","root","");
+		System.out.println("connection success");	
+		 
+		 Statement s=conn.createStatement();
+		 
+		 String qlogin="SELECT * FROM login"; 	
+         ResultSet rs1=s.executeQuery(qlogin);
+		 
+         System.out.println("Welcome:please verify");
+		 
+		 System.out.println("enter your login id");
+		 String id  = scanner.nextLine();
+		 
+		 System.out.println("enter password");
+		 String pswd  = scanner.nextLine();
+
+		// System.out.println(id+pswd);
+		 
+		 
+		 Boolean check=validate(id,pswd,rs1);
+		 rs1.close();
+		
+		 if(check) {
+			 String query="SELECT * FROM wine";
+			 ResultSet rs=s.executeQuery(query);
+			 calculate(rs,"agst");
+			  rs.beforeFirst();
+			  calculate(rs,"winter_rain");
+			  rs.beforeFirst();
+			  calculate(rs,"harvest_rain");
+			  rs.beforeFirst();
+			  calculate(rs,"age");
+			  rs.beforeFirst();
+			  calculate(rs,"francepop");
+			 
+			  String query1="SELECT * FROM wine2";
+			  ResultSet rsB=s.executeQuery(query1);
+              int pos=0;
+			  while(rsB.next()) {
+				 beta[pos]= rsB.getDouble("beta");
+				 System.out.println(beta[pos]);
+				 pos++;
+				  
+				  
+			  }
+			  
+		 	 
+	
+		 ResultSet rs3=s.executeQuery(query);
+		 
+             
+	         while(rs3.next()) {
+			 price[point]=rs3.getDouble("price");
+			 winterrain[point]=rs3.getDouble("winter_rain");
+			 agst[point]=rs3.getDouble("agst");
+			 harvest_rain[point]=rs3.getDouble("harvest_rain");
+			 age[point]=rs3.getDouble("age");
+			 francepop[point]=rs3.getDouble("francepop");
+			 y[point]=rs3.getDouble("price");
+			 x[point][0]=rs3.getDouble("agst");
+			 x[point][1]=rs3.getDouble("harvest_rain");
+			 x[point][2]=rs3.getDouble("winter_rain");
+			 x[point][3]=rs3.getDouble("age");
+			 point++;
+		 }
+	     
+	     System.out.println();    
+         System.out.println("CORRELATION COEFFICIENT:");
+         System.out.println();
+		 System.out.printf("Correlation Coefficient between AGST and Winterrain=%6f",correlationCoefficient(agst, winterrain, 25));
+		 System.out.println();
+		 System.out.printf("Correlation Coefficient between AGST and Harvest RAIN = %6f",correlationCoefficient(agst,harvest_rain, 25));
+		 System.out.println();
+		 System.out.printf("Correlation Coefficient between AGST and AGE = %6f",correlationCoefficient(agst,age, 25));
+		 System.out.println();
+		 System.out.printf("Correlation Coefficient between AGST and FRANCE POPULATION = %6f",correlationCoefficient(agst, francepop, 25));
+		 System.out.println();
+		 System.out.println();
+		 System.out.printf("Correlation Coefficient between Winter Rain and Harvest Rian = %6f",correlationCoefficient(winterrain,harvest_rain, 25));
+		 System.out.println();
+		 System.out.printf("Correlation Coefficient between Winter Rain and Age = %6f",correlationCoefficient(winterrain, age, 25));
+		 System.out.println();
+		 System.out.printf("Correlation Coefficient between Winter Rain and FRANCE POPULATION = %6f",correlationCoefficient(winterrain, francepop, 25));
+		 System.out.println();
+		 System.out.println();
+		 System.out.printf("Correlation Coefficient between Harvest Rain  and Age = %6f",correlationCoefficient(harvest_rain, age, 25));
+		 System.out.println();
+		 System.out.printf("Correlation Coefficient between Harvest Rain  and France Population = %6f",correlationCoefficient(harvest_rain, francepop, 25));
+		 System.out.println();
+		 System.out.println();
+		 System.out.printf("Correlation Coefficient between france POPULATION  and Age = %6f",correlationCoefficient(francepop, age, 25));
+		 System.out.println();
+		 statistical regression = new statistical(x, y);
+		 System.out.println();
+		 
+		  System.out.println("Multivariate regression between AGST ,Harvest Rain,Age and Winter Rain");
+		  System.out.printf("(R^2 = %.2f)\n",regression.R2());
+		  System.out.println();
+		  
+		 
+		  System.out.println("Predicting the wine price...\n");
+          
+		  System.out.println("Predicted price = B0 + B1*agst + B2*harvestrain + B3*age + B4*winterrain ");
+		  double Eagst,Eharvestrain,Eage,Ewinterrain,Efrancepop;
+		  
+		  System.out.println("Enter the value of agst Range[15-17]");
+		  Eagst = scanner.nextDouble();
+	
+		  System.out.println("Enter the value Harvestrain Range[60-290]");
+	      Eharvestrain = scanner.nextDouble();     
+     	         
+		  System.out.println("Enter the value age[5-31]");
+		  Eage = scanner.nextDouble();
+		  
+		  System.out.println("Enter the value winterrain[376-821]");
+		  Ewinterrain = scanner.nextDouble();
+		  Efrancepop = 46955;
+
+	      
+          double predictedprice = beta[0]+beta[1]*Eagst+beta[2]*Eharvestrain+beta[3]*Eage+beta[4]*Ewinterrain+beta[5]*Efrancepop; 	 	   
+		  System.out.println();
+          System.out.printf("Predicted price For wine =%f $",predictedprice);
+		  }
+		 
+		
+        }
+		catch(Exception e){
+			
+		}
+        
+	}
+
+}
